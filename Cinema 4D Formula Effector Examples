@@ -1,0 +1,8 @@
+Cinema 4D Formuala Effector Examples
+
+Select Last Clone:
+id==(count-1)
+
+Select First Clone:
+id==0
+
