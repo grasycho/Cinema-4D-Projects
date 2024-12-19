@@ -1,0 +1,95 @@
+import c4d
+import math
+
+def main() -> c4d.BaseObject:
+    """
+    Creates complex splines between Start_Point and End_Point
+    Spline styles can be adjusted using the parameters
+    """
+    
+    # Find the null objects
+    start_null = doc.SearchObject("Start_Point")
+    end_null = doc.SearchObject("End_Point")
+    
+    if not start_null or not end_null:
+        print("Please create null objects named 'Start_Point' and 'End_Point'")
+        return None
+    
+    # Parameters for path complexity
+    point_count = 180        # More points = smoother path
+    path_style = 3           # 0=Direct, 1=Arc, 2=S-Curve, 3=Complex
+    wave_amplitude = 200.0   # Size of waves
+    wave_frequency = 4.0     # Number of waves
+    vertical_scale = 150.0   # Height variation
+    twist_amount = 4.0       # How much the path twists
+    
+    # Get positions
+    start_pos = start_null.GetAbsPos()
+    end_pos = end_null.GetAbsPos()
+    
+    # Calculate path vectors
+    direction = end_pos - start_pos
+    path_length = direction.GetLength()
+    direction.Normalize()
+    
+    # Calculate perpendicular vectors for complex movement
+    up_vector = c4d.Vector(0, 1, 0)
+    right_vector = c4d.Vector.Cross(direction, up_vector).GetNormalized()
+    
+    # Create spline object
+    spline = c4d.SplineObject(point_count, c4d.SPLINETYPE_BEZIER)
+    spline[c4d.SPLINEOBJECT_CLOSED] = False
+    
+    points = []
+    
+    for i in range(point_count):
+        t = i / (point_count - 1)
+        
+        # Base position with linear interpolation
+        base_pos = start_pos + direction * (t * path_length)
+        offset = c4d.Vector(0)
+        
+        if path_style == 0:  # Direct with slight variation
+            offset = right_vector * (math.sin(t * math.pi * 2) * wave_amplitude * 0.2)
+            offset.y = math.sin(t * math.pi) * vertical_scale * 0.3
+            
+        elif path_style == 1:  # Arc with waves
+            height_factor = math.sin(t * math.pi)
+            wave_factor = math.sin(t * math.pi * wave_frequency)
+            offset = right_vector * (wave_factor * wave_amplitude)
+            offset.y = height_factor * vertical_scale
+            
+        elif path_style == 2:  # S-Curve with vertical waves
+            s_factor = math.sin(t * math.pi * 2)
+            v_factor = math.sin(t * math.pi * wave_frequency)
+            offset = right_vector * (s_factor * wave_amplitude)
+            offset.y = v_factor * vertical_scale
+            
+        elif path_style == 3:  # Complex path
+            # Horizontal movement
+            angle = t * math.pi * twist_amount
+            h_offset = (math.cos(angle) * right_vector + 
+                       math.sin(angle) * up_vector) * wave_amplitude
+            
+            # Vertical movement
+            v_offset = math.sin(t * math.pi * wave_frequency) * vertical_scale
+            
+            # Spiral effect
+            spiral_radius = wave_amplitude * (1 - t)  # Decreasing radius
+            spiral_angle = t * math.pi * 4
+            spiral_offset = (math.cos(spiral_angle) * right_vector + 
+                           math.sin(spiral_angle) * up_vector) * spiral_radius
+            
+            offset = h_offset
+            offset.y += v_offset
+            offset += spiral_offset * 0.3
+        
+        # Calculate final position
+        final_pos = base_pos + offset
+        points.append(final_pos)
+    
+    # Set points
+    spline.SetAllPoints(points)
+    spline.Message(c4d.MSG_UPDATE)
+    
+    return spline
